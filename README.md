@@ -1,3 +1,11 @@
+# XHRequireJS
+
+XHRequireJS is a major fork from RequireJS. It relies on using XMLHttpRequest to fetch files instead of [appending <code>&lt;script&gt;</code> tags to the DOM](http://requirejs.org/docs/why.html). Why would we need to do this? Only if you need to support Firefox extension development where you want to use RequireJS inside the background script, but give it the ability to fetch files from remote CDNs.
+
+Here are some more reasons why a fork was necessary:
+* We need dependency handling that RequireJS does well, meaning it's cumbersome having to reimplement dependency handling from scratch.
+* The [net/xhr](https://developer.mozilla.org/en-US/Add-ons/SDK/Low-Level_APIs/net_xhr) and [request](https://developer.mozilla.org/en-US/Add-ons/SDK/High-Level_APIs/request) APIs are the only ways for Firefox extensions to do cross-domain AJAX calls.
+
 # RequireJS
 
 RequireJS loads plain JavaScript files as well as more defined modules. It is
