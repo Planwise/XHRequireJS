@@ -5,6 +5,7 @@ XHRequireJS is a major fork from RequireJS. It relies on using XMLHttpRequest to
 Here are some more reasons why a fork was necessary:
 * We need dependency handling that RequireJS does well, meaning it's cumbersome having to reimplement dependency handling from scratch.
 * The [net/xhr](https://developer.mozilla.org/en-US/Add-ons/SDK/Low-Level_APIs/net_xhr) and [request](https://developer.mozilla.org/en-US/Add-ons/SDK/High-Level_APIs/request) APIs are the only ways for Firefox extensions to do cross-domain AJAX calls.
+* You don't want to package all the dependent libraries into the extension.
 
 # RequireJS
 
