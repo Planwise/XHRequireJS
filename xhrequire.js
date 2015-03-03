@@ -1,4 +1,5 @@
 /** vim: et:ts=4:sw=4:sts=4
+ * XHRequireJS 2.1.16, a fork based on original implementation of
  * @license RequireJS 2.1.16 Copyright (c) 2010-2015, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
@@ -1201,28 +1202,6 @@ var requirejs, require, define;
             }
         }
 
-        /**
-         * Given an event from a script node, get the requirejs info from it,
-         * and then removes the event listeners on the node.
-         * @param {Event} evt
-         * @returns {Object}
-         */
-        function getScriptData(evt) {
-            //Using currentTarget instead of target for Firefox 2.0's sake. Not
-            //all old browsers will be supported, but this one was easy enough
-            //to support and still makes sense.
-            var node = evt.currentTarget || evt.srcElement;
-
-            //Remove the listeners once here.
-            removeListener(node, context.onScriptLoad, 'load', 'onreadystatechange');
-            removeListener(node, context.onScriptError, 'error');
-
-            return {
-                node: node,
-                id: node && node.getAttribute('data-requiremodule')
-            };
-        }
-
         function intakeDefines() {
             var args;
 
@@ -1672,18 +1651,12 @@ var requirejs, require, define;
              * that was loaded.
              */
             onScriptLoad: function (evt) {
-                //Using currentTarget instead of target for Firefox 2.0's sake. Not
-                //all old browsers will be supported, but this one was easy enough
-                //to support and still makes sense.
-                if (evt.type === 'load' ||
-                        (readyRegExp.test((evt.currentTarget || evt.srcElement).readyState))) {
+                if (evt.xhr.readyState) {
                     //Reset interactive script so a script node is not held onto for
                     //to long.
                     interactiveScript = null;
 
-                    //Pull out the name of the module and the context.
-                    var data = getScriptData(evt);
-                    context.completeLoad(data.id);
+                    context.completeLoad(evt.id);
                 }
             },
 
@@ -1691,9 +1664,8 @@ var requirejs, require, define;
              * Callback for script errors.
              */
             onScriptError: function (evt) {
-                var data = getScriptData(evt);
-                if (!hasPathFallback(data.id)) {
-                    return onError(makeError('scripterror', 'Script error for: ' + data.id, evt, [data.id]));
+                if (!hasPathFallback(evt.id)) {
+                    return onError(makeError('scripterror', 'Script error for: ' + evt.id, evt, [evt.id]));
                 }
             }
         };
@@ -1825,19 +1797,6 @@ var requirejs, require, define;
     req.onError = defaultOnError;
 
     /**
-     * Creates the node for the load command. Only used in browser envs.
-     */
-    req.createNode = function (config, moduleName, url) {
-        var node = config.xhtml ?
-                document.createElementNS('http://www.w3.org/1999/xhtml', 'html:script') :
-                document.createElement('script');
-        node.type = config.scriptType || 'text/javascript';
-        node.charset = 'utf-8';
-        node.async = true;
-        return node;
-    };
-
-    /**
      * Does the request to load a module for the browser case.
      * Make this a separate function to allow other environments
      * to override it.
@@ -1848,70 +1807,24 @@ var requirejs, require, define;
      */
     req.load = function (context, moduleName, url) {
         var config = (context && context.config) || {},
-            node;
+            xhr;
         if (isBrowser) {
-            //In the browser so use a script tag
-            node = req.createNode(config, moduleName, url);
 
-            node.setAttribute('data-requirecontext', context.contextName);
-            node.setAttribute('data-requiremodule', moduleName);
+            currentlyAddingScript = xhr = makeXhrRequest(url,
+                function (evt) {
+                    evt.id = moduleName;
+                    evt.xhr = xhr;
+                    context.onScriptLoad(evt);
+                },
+                function (evt) {
+                    evt.id = moduleName;
+                    evt.xhr = xhr;
+                    context.onScriptError(evt);
+                });
 
-            //Set up load listener. Test attachEvent first because IE9 has
-            //a subtle issue in its addEventListener and script onload firings
-            //that do not match the behavior of all other browsers with
-            //addEventListener support, which fire the onload event for a
-            //script right after the script execution. See:
-            //https://connect.microsoft.com/IE/feedback/details/648057/script-onload-event-is-not-fired-immediately-after-script-execution
-            //UNFORTUNATELY Opera implements attachEvent but does not follow the script
-            //script execution mode.
-            if (node.attachEvent &&
-                    //Check if node.attachEvent is artificially added by custom script or
-                    //natively supported by browser
-                    //read https://github.com/jrburke/requirejs/issues/187
-                    //if we can NOT find [native code] then it must NOT natively supported.
-                    //in IE8, node.attachEvent does not have toString()
-                    //Note the test for "[native code" with no closing brace, see:
-                    //https://github.com/jrburke/requirejs/issues/273
-                    !(node.attachEvent.toString && node.attachEvent.toString().indexOf('[native code') < 0) &&
-                    !isOpera) {
-                //Probably IE. IE (at least 6-8) do not fire
-                //script onload right after executing the script, so
-                //we cannot tie the anonymous define call to a name.
-                //However, IE reports the script as being in 'interactive'
-                //readyState at the time of the define call.
-                useInteractive = true;
-
-                node.attachEvent('onreadystatechange', context.onScriptLoad);
-                //It would be great to add an error handler here to catch
-                //404s in IE9+. However, onreadystatechange will fire before
-                //the error handler, so that does not help. If addEventListener
-                //is used, then IE will fire error before load, but we cannot
-                //use that pathway given the connect.microsoft.com issue
-                //mentioned above about not doing the 'script execute,
-                //then fire the script load event listener before execute
-                //next script' that other browsers do.
-                //Best hope: IE10 fixes the issues,
-                //and then destroys all installs of IE 6-9.
-                //node.attachEvent('onerror', context.onScriptError);
-            } else {
-                node.addEventListener('load', context.onScriptLoad, false);
-                node.addEventListener('error', context.onScriptError, false);
-            }
-            node.src = url;
-
-            //For some cache cases in IE 6-8, the script executes before the end
-            //of the appendChild execution, so to tie an anonymous define
-            //call to the module name (which is stored on the node), hold on
-            //to a reference to this node, but clear after the DOM insertion.
-            currentlyAddingScript = node;
-            if (baseElement) {
-                head.insertBefore(node, baseElement);
-            } else {
-                head.appendChild(node);
-            }
             currentlyAddingScript = null;
 
-            return node;
+            return xhr;
         } else if (isWebWorker) {
             try {
                 //In a web worker, use importScripts. This is not a very
@@ -1933,6 +1846,24 @@ var requirejs, require, define;
             }
         }
     };
+
+    function makeXhrRequest(url, doneCallback, failCallback) {
+        var xhrRequest = new XMLHttpRequest();
+        xhrRequest.onload = function () {
+            eval(xhrRequest.responseText);
+            if (typeof doneCallback === "function") {
+                doneCallback(xhrRequest);
+            }
+        };
+        xhrRequest.onerror = function () {
+            if (typeof failCallback === "function") {
+                failCallback(xhrRequest);
+            }
+        }
+        xhrRequest.open("get", url, true);
+        xhrRequest.send();
+        return xhrRequest;
+    }
 
     function getInteractiveScript() {
         if (interactiveScript && interactiveScript.readyState === 'interactive') {
