@@ -2,7 +2,7 @@
  * XHRequireJS 2.1.16, a fork based on original implementation of
  * @license RequireJS 2.1.16 Copyright (c) 2010-2015, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
+ * Visit for more details at https://github.com/planwise/xhrequirejs
  */
 //Not using strict: uneven strict support in browsers, #392, and causes
 //problems with requirejs.exec()/transpiler plugins that may not be strict.
