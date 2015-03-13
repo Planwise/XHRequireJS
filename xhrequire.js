@@ -1808,8 +1808,8 @@ var requirejs, require, define;
     req.load = function (context, moduleName, url) {
         var config = (context && context.config) || {},
             xhr;
-        if (isBrowser) {
 
+        var xhrCall = function () {
             currentlyAddingScript = xhr = makeXhrRequest(url,
                 function (evt) {
                     evt.id = moduleName;
@@ -1825,6 +1825,10 @@ var requirejs, require, define;
             currentlyAddingScript = null;
 
             return xhr;
+        };
+
+        if (isBrowser) {
+            return xhrCall();
         } else if (isWebWorker) {
             try {
                 //In a web worker, use importScripts. This is not a very
@@ -1844,13 +1848,16 @@ var requirejs, require, define;
                                 e,
                                 [moduleName]));
             }
+        } else {
+            return xhrCall();
         }
     };
 
     function makeXhrRequest(url, doneCallback, failCallback) {
         var xhrRequest = new XMLHttpRequest();
+        xhrRequest.open("get", url, true);
         xhrRequest.onload = function () {
-            eval(xhrRequest.responseText);
+            eval(xhrRequest.responseText + "\n//# sourceURL=" + url.replace(/^[a-z]*:?\/\//g, "http://") + "\n");
             if (typeof doneCallback === "function") {
                 doneCallback(xhrRequest);
             }
@@ -1859,24 +1866,23 @@ var requirejs, require, define;
             if (typeof failCallback === "function") {
                 failCallback(xhrRequest);
             }
-        }
-        xhrRequest.open("get", url, true);
+        };
         xhrRequest.send();
         return xhrRequest;
     }
 
-    function getInteractiveScript() {
-        if (interactiveScript && interactiveScript.readyState === 'interactive') {
-            return interactiveScript;
-        }
+    // function getInteractiveScript() {
+    //     if (interactiveScript && interactiveScript.readyState === 'interactive') {
+    //         return interactiveScript;
+    //     }
 
-        eachReverse(scripts(), function (script) {
-            if (script.readyState === 'interactive') {
-                return (interactiveScript = script);
-            }
-        });
-        return interactiveScript;
-    }
+    //     eachReverse(scripts(), function (script) {
+    //         if (script.readyState === 'interactive') {
+    //             return (interactiveScript = script);
+    //         }
+    //     });
+    //     return interactiveScript;
+    // }
 
     //Look for a data-main script attribute, which could also adjust the baseUrl.
     if (isBrowser && !cfg.skipDataMain) {
@@ -1974,15 +1980,15 @@ var requirejs, require, define;
 
         //If in IE 6-8 and hit an anonymous define() call, do the interactive
         //work.
-        if (useInteractive) {
-            node = currentlyAddingScript || getInteractiveScript();
-            if (node) {
-                if (!name) {
-                    name = node.getAttribute('data-requiremodule');
-                }
-                context = contexts[node.getAttribute('data-requirecontext')];
-            }
-        }
+        // if (useInteractive) {
+        //     node = currentlyAddingScript || getInteractiveScript();
+        //     if (node) {
+        //         if (!name) {
+        //             name = node.getAttribute('data-requiremodule');
+        //         }
+        //         context = contexts[node.getAttribute('data-requirecontext')];
+        //     }
+        // }
 
         //Always save off evaluating the def call until the script onload handler.
         //This allows multiple modules to be in a file without prematurely
