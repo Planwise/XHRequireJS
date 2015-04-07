@@ -1857,7 +1857,10 @@ var requirejs, require, define;
         var xhrRequest = new XMLHttpRequest();
         xhrRequest.open("get", url, true);
         xhrRequest.onload = function () {
-            eval(xhrRequest.responseText + "\n//# sourceURL=" + url.replace(/^[a-z]*:?\/\//g, "http://") + "\n");
+            //Make sourceURL pretty to help with debugging
+            var protocol = window && window.location && window.location.protocol ? window.location.protocol : "http:";
+            var sourceURL = "\n//# sourceURL=" + url.replace(/^\/\//, protocol + "//") + "\n";
+            eval(xhrRequest.responseText + sourceURL);
             if (typeof doneCallback === "function") {
                 doneCallback(xhrRequest);
             }
@@ -1870,19 +1873,6 @@ var requirejs, require, define;
         xhrRequest.send();
         return xhrRequest;
     }
-
-    // function getInteractiveScript() {
-    //     if (interactiveScript && interactiveScript.readyState === 'interactive') {
-    //         return interactiveScript;
-    //     }
-
-    //     eachReverse(scripts(), function (script) {
-    //         if (script.readyState === 'interactive') {
-    //             return (interactiveScript = script);
-    //         }
-    //     });
-    //     return interactiveScript;
-    // }
 
     //Look for a data-main script attribute, which could also adjust the baseUrl.
     if (isBrowser && !cfg.skipDataMain) {
@@ -1977,18 +1967,6 @@ var requirejs, require, define;
                 deps = (callback.length === 1 ? ['require'] : ['require', 'exports', 'module']).concat(deps);
             }
         }
-
-        //If in IE 6-8 and hit an anonymous define() call, do the interactive
-        //work.
-        // if (useInteractive) {
-        //     node = currentlyAddingScript || getInteractiveScript();
-        //     if (node) {
-        //         if (!name) {
-        //             name = node.getAttribute('data-requiremodule');
-        //         }
-        //         context = contexts[node.getAttribute('data-requirecontext')];
-        //     }
-        // }
 
         //Always save off evaluating the def call until the script onload handler.
         //This allows multiple modules to be in a file without prematurely
